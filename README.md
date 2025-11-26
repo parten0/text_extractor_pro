@@ -153,7 +153,9 @@ Found a bug? Have an idea? Want to add more features? Feel free to open an issue
 
 ## 📄 License
 
-Use it, modify it, make it better. Just don't blame us if your invoices start dancing (though that would be pretty cool). 😎
+MIT License - Do whatever you want with it. Use it, modify it, sell it, make it dance. Just don't blame us if something goes wrong (though we're pretty sure it won't). 😎
+
+See [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 

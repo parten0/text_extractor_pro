@@ -1,0 +1,18 @@
+const FIELD_COORDINATES = {
+  invoicenumber_TL: { x: 49, y: 627, page: 1 },
+  invoicenumber_TR: { x: 144, y: 626, page: 1 },
+  invoicenumber_BL: { x: 49, y: 607, page: 1 },
+  invoicenumber_BR: { x: 145, y: 607, page: 1 },
+  vatnum_TL: { x: 378, y: 597, page: 1 },
+  vatnum_TR: { x: 525, y: 600, page: 1 },
+  vatnum_BL: { x: 378, y: 581, page: 1 },
+  vatnum_BR: { x: 524, y: 581, page: 1 },
+  date_TL: { x: 47, y: 567, page: 1 },
+  date_TR: { x: 169, y: 566, page: 1 },
+  date_BL: { x: 44, y: 554, page: 1 },
+  date_BR: { x: 168, y: 554, page: 1 },
+  customer_TL: { x: 373, y: 679, page: 1 },
+  customer_BL: { x: 372, y: 644, page: 1 },
+  customer_BR: { x: 538, y: 641, page: 1 },
+  customer_TR: { x: 540, y: 680, page: 1 },
+};

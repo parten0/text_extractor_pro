@@ -1,0 +1,50 @@
+import csv
+import os
+
+class CSVWriter:
+    def __init__(self, path):
+        self.path = path
+
+    def write(self, data):
+        """
+        Write invoice data to CSV file.
+        Data structure: {filename: {"metadata": {...}}, ...}
+        CSV structure: filename column + all metadata keys as columns
+        """
+        if not data:
+            # Create empty CSV file
+            with open(self.path, "w", encoding="utf-8", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(["filename"])
+            return
+
+        # Collect all unique keys across all invoices
+        all_keys = set()
+        for invoice_data in data.values():
+            if "metadata" in invoice_data:
+                all_keys.update(invoice_data["metadata"].keys())
+        
+        # Sort keys for consistent column order
+        all_keys = sorted(list(all_keys))
+        
+        # Create CSV with filename as first column, then all metadata keys
+        with open(self.path, "w", encoding="utf-8", newline="") as f:
+            writer = csv.writer(f)
+            
+            # Write header: filename + all metadata keys
+            header = ["filename"] + all_keys
+            writer.writerow(header)
+            
+            # Write data rows
+            for filename, invoice_data in sorted(data.items()):
+                row = [filename]
+                metadata = invoice_data.get("metadata", {})
+                
+                # Add values for each key (empty string if key not present)
+                for key in all_keys:
+                    value = metadata.get(key, "")
+                    # Convert to string and handle None values
+                    row.append(str(value) if value is not None else "")
+                
+                writer.writerow(row)
+

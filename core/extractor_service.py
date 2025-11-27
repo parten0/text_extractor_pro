@@ -90,6 +90,47 @@ class ExtractorService:
         
         return None
 
+    def _extract_date_special(self, page):
+        """Extract Date-Special: Find line containing both 'Date:' and 'Order', extract the date"""
+        # Extract full page text to search for Date-Special
+        full_text = page.extract_text()
+        
+        if not full_text:
+            return None
+        
+        # Split text into lines
+        lines = full_text.split('\n')
+        
+        for line in lines:
+            # Check if line contains both "Date:" (case-insensitive) and "Order" (case-insensitive)
+            if re.search(r'Date\s*:', line, re.IGNORECASE) and re.search(r'Order', line, re.IGNORECASE):
+                # Extract the date value after "Date:" and before "Order"
+                # Pattern: Date: <date> ... Order
+                # The date can be in various formats: "01/15/2024", "2024-01-15", "Jan 15, 2024", etc.
+                # Match everything after "Date:" until we hit "Order" (case-insensitive) or end of line
+                # Use positive lookahead to stop at "Order" without consuming it
+                match = re.search(r'Date\s*:\s*(.*?)(?=\s*Order|$)', line, re.IGNORECASE)
+                if match:
+                    date_value = match.group(1).strip()
+                    # Clean up: remove any trailing punctuation, whitespace, or common separators
+                    date_value = date_value.rstrip('.,;: \t')
+                    if date_value:
+                        return date_value
+        
+        return None
+
+    def _clean_customer_field(self, text):
+        """Remove 'Invoice to:' prefix from customer field if present"""
+        if not text:
+            return text
+        
+        # Remove "Invoice to:" prefix (case-insensitive, with optional colon)
+        # Handle both single-line and multi-line cases
+        # Pattern matches "Invoice to:" or "Invoice to" at the start, optionally followed by newline
+        text = re.sub(r'^Invoice\s+to\s*:\s*\n?', '', text, flags=re.IGNORECASE | re.MULTILINE)
+        
+        return text.strip()
+
     def _process_pdf(self, pdf_path):
         """Process a single PDF file and return invoice data"""
         invoice = InvoiceModel()
@@ -108,6 +149,10 @@ class ExtractorService:
                         if not text:
                             continue
                         
+                        # Clean customer field: remove "Invoice to:" prefix if present
+                        if field_name == "customer":
+                            text = self._clean_customer_field(text)
+                        
                         # Always store under the coordinate field name
                         # Also try to parse key-value pairs and add them separately if found
                         invoice.add_metadata({field_name: text})
@@ -116,6 +161,16 @@ class ExtractorService:
                         # This allows fields like "Invoiceto:" to also be accessible
                         parsed = self.kv_parser.parse(text)
                         if parsed:
+                            # Clean customer field if it comes from parsed data
+                            if "customer" in parsed:
+                                parsed["customer"] = self._clean_customer_field(parsed["customer"])
+                            # Also check for "Invoice to" key and clean it
+                            for key in list(parsed.keys()):
+                                if "invoice" in key.lower() and "to" in key.lower():
+                                    # This might be "Invoice to" key, move to customer and clean
+                                    if "customer" not in parsed:
+                                        parsed["customer"] = self._clean_customer_field(parsed[key])
+                                    del parsed[key]
                             invoice.add_metadata(parsed)
                 else:
                     # Fallback: full page extraction
@@ -128,6 +183,14 @@ class ExtractorService:
                     invoice.add_metadata({"invoice_total": invoice_total})
                 else:
                     print("INVOICE TOTAL not found on this page")
+                
+                # Extract Date-Special from the page (searches for line with both "Date:" and "Order")
+                date_special = self._extract_date_special(page)
+                if date_special:
+                    print(f"Found Date-Special: {date_special}")
+                    invoice.add_metadata({"Date-Special": date_special})
+                else:
+                    print("Date-Special not found on this page")
 
         return invoice.to_dict()
 

@@ -10,11 +10,9 @@ from utils.coordinates_parser import CoordinatesParser
 
 
 class ExtractorService:
-    def __init__(self, invoices_folder, output_json_path, output_csv_path=None, coordinates_file=None):
+    def __init__(self, invoices_folder, coordinates_file=None):
         self.invoices_folder = invoices_folder
         self.kv_parser = KVParser()
-        self.json_writer = JSONWriter(output_json_path)
-        self.csv_writer = CSVWriter(output_csv_path) if output_csv_path else None
         
         # Load coordinates if provided
         if coordinates_file is None:
@@ -24,7 +22,14 @@ class ExtractorService:
         
         self.coordinates_parser = CoordinatesParser(coordinates_file)
         self.coordinates = self.coordinates_parser.parse()
-        print(self.coordinates)
+        
+        # Create outputs directory at project root with json and csv subfolders
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.outputs_folder = os.path.join(project_root, "outputs")
+        self.json_folder = os.path.join(self.outputs_folder, "json")
+        self.csv_folder = os.path.join(self.outputs_folder, "csv")
+        os.makedirs(self.json_folder, exist_ok=True)
+        os.makedirs(self.csv_folder, exist_ok=True)
 
     def _extract_text_from_coordinates(self, page, page_index):
         """Extract text only from defined coordinate regions and return as dict with field names"""
@@ -53,8 +58,6 @@ class ExtractorService:
                 text = cropped_page.extract_text()
                 
                 field_name = coord_info['field']
-                # Debug output
-                print(f"Field: {field_name}, BBox: {bbox}, Text extracted: {repr(text[:100]) if text else 'EMPTY'}")
                 
                 # Store text with field name as key (even if empty, we'll handle it later)
                 if field_name not in extracted_data:
@@ -179,51 +182,66 @@ class ExtractorService:
                 # Extract INVOICE TOTAL from the page (searches full page text)
                 invoice_total = self._extract_invoice_total(page)
                 if invoice_total:
-                    print(f"Found INVOICE TOTAL: {invoice_total}")
                     invoice.add_metadata({"invoice_total": invoice_total})
-                else:
-                    print("INVOICE TOTAL not found on this page")
                 
                 # Extract Date-Special from the page (searches for line with both "Date:" and "Order")
                 date_special = self._extract_date_special(page)
                 if date_special:
-                    print(f"Found Date-Special: {date_special}")
                     invoice.add_metadata({"Date-Special": date_special})
-                else:
-                    print("Date-Special not found on this page")
 
         return invoice.to_dict()
 
     def run(self):
-        """Process all PDFs in the invoices folder"""
-        # Get all PDF files from the invoices folder
-        pdf_pattern = os.path.join(self.invoices_folder, "*.pdf")
-        pdf_files = sorted(glob.glob(pdf_pattern))
-
-        if not pdf_files:
-            print(f"No PDF files found in {self.invoices_folder} folder")
-            self.json_writer.write({})
-            if self.csv_writer:
-                self.csv_writer.write({})
-            return
-
-        # Process each PDF and collect results with filename as key
-        invoices_data = {}
-        for pdf_path in pdf_files:
-            filename = os.path.basename(pdf_path)
-            print(f"Processing: {pdf_path}")
-            try:
-                invoice_data = self._process_pdf(pdf_path)
-                invoices_data[filename] = invoice_data
-            except Exception as e:
-                print(f"Error processing {pdf_path}: {e}")
-                continue
-
-        # Write all invoices as an object with filenames as keys
-        self.json_writer.write(invoices_data)
-        print(f"Processed {len(invoices_data)} invoice(s) and saved JSON to {self.json_writer.path}")
+        """Process all PDFs in subfolders of the invoices folder"""
+        print("Starting invoice processing...")
         
-        # Write CSV file if CSV writer is configured
-        if self.csv_writer:
-            self.csv_writer.write(invoices_data)
-            print(f"Saved CSV to {self.csv_writer.path}")
+        # Get all subfolders in the invoices folder
+        if not os.path.exists(self.invoices_folder):
+            print(f"Error: Invoices folder '{self.invoices_folder}' not found")
+            return
+        
+        # Get all subdirectories in invoices folder
+        subfolders = [f for f in os.listdir(self.invoices_folder) 
+                     if os.path.isdir(os.path.join(self.invoices_folder, f))]
+        
+        if not subfolders:
+            print(f"No subfolders found in {self.invoices_folder}")
+            return
+        
+        # Process each subfolder
+        for folder_name in sorted(subfolders):
+            folder_path = os.path.join(self.invoices_folder, folder_name)
+            
+            # Get all PDF files in this subfolder
+            pdf_pattern = os.path.join(folder_path, "*.pdf")
+            pdf_files = sorted(glob.glob(pdf_pattern))
+            
+            if not pdf_files:
+                continue
+            
+            # Process each PDF in the folder
+            invoices_data = {}
+            for pdf_path in pdf_files:
+                filename = os.path.basename(pdf_path)
+                try:
+                    invoice_data = self._process_pdf(pdf_path)
+                    invoices_data[filename] = invoice_data
+                except Exception as e:
+                    continue
+            
+            # Generate JSON and CSV for this folder
+            if invoices_data:
+                # Generate JSON file in json subfolder
+                json_filename = f"{folder_name}.json"
+                json_path = os.path.join(self.json_folder, json_filename)
+                json_writer = JSONWriter(json_path)
+                json_writer.write(invoices_data)
+                
+                # Generate CSV file in csv subfolder
+                csv_filename = f"{folder_name}.csv"
+                csv_path = os.path.join(self.csv_folder, csv_filename)
+                csv_writer = CSVWriter(csv_path)
+                csv_writer.write(invoices_data)
+                print(f"Processed folder '{folder_name}': {len(invoices_data)} invoice(s) -> json/{json_filename}, csv/{csv_filename}")
+        
+        print("Processing complete.")

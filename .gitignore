@@ -7,6 +7,8 @@
 # Ignore invoices folder
 invoices/
 
+# Ignore outputs folder
+outputs/
 # Python cache
 __pycache__/
 *.py[cod]

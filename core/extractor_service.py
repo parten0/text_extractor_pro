@@ -134,6 +134,94 @@ class ExtractorService:
         
         return text.strip()
 
+    def _extract_special_customer(self, page):
+        """Extract special customer: Find 'Invoice to:' and take 3 lines below it at the same indentation level"""
+        # Extract full page text
+        full_text = page.extract_text()
+        
+        if not full_text:
+            return None
+        
+        # Split text into lines
+        lines = full_text.split('\n')
+        
+        # Find line containing "Invoice to:"
+        for i, line in enumerate(lines):
+            if re.search(r'Invoice\s+to\s*:', line, re.IGNORECASE):
+                # Get the indentation level (leading whitespace) of the "Invoice to:" line
+                invoice_to_indent = len(line) - len(line.lstrip())
+                
+                # Look for 3 lines below at the same indentation level
+                customer_lines = []
+                lines_found = 0
+                
+                for j in range(i + 1, min(i + 4, len(lines))):
+                    current_line = lines[j]
+                    current_indent = len(current_line) - len(current_line.lstrip())
+                    
+                    # Check if indentation matches (allow small tolerance of ±2 spaces)
+                    if abs(current_indent - invoice_to_indent) <= 2:
+                        customer_lines.append(current_line.strip())
+                        lines_found += 1
+                        if lines_found >= 3:
+                            break
+                    else:
+                        # If we hit a line with different indentation, stop
+                        break
+                
+                if customer_lines:
+                    customer_text = '\n'.join(customer_lines).strip()
+                    if customer_text:
+                        return customer_text
+        
+        return None
+
+    def _extract_spec_vat(self, page):
+        """Extract spec_vat: Search for 'Vat No:' or 'CUSTOMER VAT:' and get text in front of it on same line"""
+        # Extract full page text
+        full_text = page.extract_text()
+        
+        if not full_text:
+            return None
+        
+        # Split text into lines
+        lines = full_text.split('\n')
+        
+        # First try: Search for exact "Vat No:" and get any text on the same line
+        # Collect all matches - need at least 2 matches, then take the last one
+        vat_matches = []
+        
+        for line in lines:
+            # Try pattern: text before "Vat No:" (exact match)
+            match = re.search(r'(.+?)\s+Vat\s+No\s*:', line, re.IGNORECASE)
+            if match:
+                vat_number = match.group(1).strip()
+                # Make sure we actually captured something meaningful (not just whitespace)
+                if vat_number and len(vat_number) > 0:
+                    vat_matches.append(vat_number)
+            
+            # Try pattern: text after "Vat No:" (exact match) on the same line
+            match = re.search(r'Vat\s+No\s*:\s*(.+)', line, re.IGNORECASE)
+            if match:
+                vat_number = match.group(1).strip()
+                if vat_number:
+                    vat_matches.append(vat_number)
+        
+        # Only return if we have 2 or more matches, then take the last one
+        if len(vat_matches) >= 2:
+            return vat_matches[-1]
+        
+        # Fallback: Search for exact "CUSTOMER VAT:" and get text AFTER it on the same line
+        for line in lines:
+            # Pattern: "CUSTOMER VAT:" (exact match) followed by any text on the same line
+            match = re.search(r'CUSTOMER\s+VAT\s*:\s*(.+)', line, re.IGNORECASE)
+            if match:
+                vat_number = match.group(1).strip()
+                if vat_number:
+                    return vat_number
+        
+        return None
+
     def _process_pdf(self, pdf_path):
         """Process a single PDF file and return invoice data"""
         invoice = InvoiceModel()
@@ -186,8 +274,18 @@ class ExtractorService:
                 
                 # Extract Date-Special from the page (searches for line with both "Date:" and "Order")
                 date_special = self._extract_date_special(page)
-                if date_special:
+                if date_special and "Date-Special" not in invoice.metadata:
                     invoice.add_metadata({"Date-Special": date_special})
+                
+                # Extract special customer (3 lines below "Invoice to:" at same indentation)
+                special_customer = self._extract_special_customer(page)
+                if special_customer and "special_customer" not in invoice.metadata:
+                    invoice.add_metadata({"special_customer": special_customer})
+                
+                # Extract spec_vat (text before "Vat No:" or "CUSTOMER VAT:" on same line)
+                spec_vat = self._extract_spec_vat(page)
+                if spec_vat and "spec_vat" not in invoice.metadata:
+                    invoice.add_metadata({"spec_vat": spec_vat})
 
         return invoice.to_dict()
 

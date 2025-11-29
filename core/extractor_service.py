@@ -176,6 +176,66 @@ class ExtractorService:
         
         return None
 
+    def _extract_spec_customer_1_from_special_customer(self, special_customer_text):
+        """Extract spec_customer_1 from special_customer by removing 'Vat No: <text>\\n' and '\\nTin No: <text>' patterns"""
+        if not special_customer_text:
+            return None
+        
+        # Remove "Vat No: <some text>\n" pattern (case-insensitive)
+        text = re.sub(r'Vat\s+No\s*:\s*[^\n]+\n', '', special_customer_text, flags=re.IGNORECASE)
+        
+        # Remove "\nTin No: <some text>" pattern (case-insensitive)
+        text = re.sub(r'\nTin\s+No\s*:\s*[^\n]+', '', text, flags=re.IGNORECASE)
+        
+        # Clean up any extra whitespace/newlines and return
+        text = text.strip()
+        
+        return text if text else None
+
+    def _extract_spec_customer_2_from_spec_customer_1(self, spec_customer_1_text):
+        """Extract spec_customer_2 from spec_customer_1 by removing 'CUSTOMER: ' prefix"""
+        if not spec_customer_1_text:
+            return None
+        
+        # Remove "CUSTOMER: " prefix (case-insensitive)
+        text = re.sub(r'^CUSTOMER\s*:\s*', '', spec_customer_1_text, flags=re.IGNORECASE)
+        
+        # Clean up any extra whitespace and return
+        text = text.strip()
+        
+        return text if text else None
+
+    def _extract_spec_customer_3_from_spec_customer_2(self, spec_customer_2_text):
+        """Extract spec_customer_3 from spec_customer_2: if 'CUSTOMER:' found, take text after it, otherwise use spec_customer_2"""
+        if not spec_customer_2_text:
+            return None
+        
+        # Search for "CUSTOMER:" in the text (case-insensitive)
+        match = re.search(r'CUSTOMER\s*:\s*(.+)', spec_customer_2_text, re.IGNORECASE)
+        if match:
+            # If found, extract text after "CUSTOMER:"
+            text = match.group(1).strip()
+            return text if text else None
+        else:
+            # If not found, return the original spec_customer_2 value
+            return spec_customer_2_text.strip() if spec_customer_2_text.strip() else None
+
+    def _extract_spec_customer_4_from_spec_customer_3(self, spec_customer_3_text):
+        """Extract spec_customer_4 from spec_customer_3: if 'FISCAL TAX INVOICE' found at beginning, take text after it, otherwise use spec_customer_3"""
+        if not spec_customer_3_text:
+            return None
+        
+        # Search for "FISCAL TAX INVOICE" at the beginning of the text (case-insensitive)
+        # Pattern matches "FISCAL TAX INVOICE" followed by a space and then captures the rest
+        match = re.match(r'FISCAL\s+TAX\s+INVOICE\s+(.+)', spec_customer_3_text, re.IGNORECASE)
+        if match:
+            # If found, extract text after "FISCAL TAX INVOICE" (space is the delimiter)
+            text = match.group(1).strip()
+            return text if text else None
+        else:
+            # If not found, return the original spec_customer_3 value
+            return spec_customer_3_text.strip() if spec_customer_3_text.strip() else None
+
     def _extract_spec_vat(self, page):
         """Extract spec_vat: Search for 'Vat No:' or 'CUSTOMER VAT:' and get text in front of it on same line"""
         # Extract full page text
@@ -222,9 +282,42 @@ class ExtractorService:
         
         return None
 
+    def _extract_invoice_numbers(self, page):
+        """Extract invoice_number_1 and invoice_number_2: Find all 'Invoice No:' occurrences and extract text that follows, stopping at 3 consecutive spaces"""
+        # Extract full page text
+        full_text = page.extract_text()
+        
+        if not full_text:
+            return None, None
+        
+        # Split text into lines
+        lines = full_text.split('\n')
+        
+        invoice_numbers = []
+        
+        for line in lines:
+            # Search for all "Invoice No:" occurrences (case-insensitive)
+            # Pattern: Match "Invoice No:" followed by any text, stopping at 3 consecutive spaces or end of line
+            matches = re.finditer(r'Invoice\s+No\s*:\s*(.+?)(?:\s{3,}|$)', line, re.IGNORECASE)
+            for match in matches:
+                invoice_text = match.group(1).strip()
+                # Remove any trailing spaces that might have been captured
+                invoice_text = invoice_text.rstrip()
+                if invoice_text:
+                    invoice_numbers.append(invoice_text)
+        
+        # Return first and second match (or None if not found)
+        invoice_number_1 = invoice_numbers[0] if len(invoice_numbers) > 0 else None
+        invoice_number_2 = invoice_numbers[1] if len(invoice_numbers) > 1 else None
+        
+        return invoice_number_1, invoice_number_2
+
     def _process_pdf(self, pdf_path):
         """Process a single PDF file and return invoice data"""
         invoice = InvoiceModel()
+        
+        # Collect invoice numbers across all pages first
+        all_invoice_numbers = []
 
         with PDFReader(pdf_path) as reader:
             for page_index, page in enumerate(reader.pages()):
@@ -281,11 +374,44 @@ class ExtractorService:
                 special_customer = self._extract_special_customer(page)
                 if special_customer and "special_customer" not in invoice.metadata:
                     invoice.add_metadata({"special_customer": special_customer})
+                    # Extract spec_customer_1 from special_customer
+                    spec_customer_1 = self._extract_spec_customer_1_from_special_customer(special_customer)
+                    if spec_customer_1:
+                        invoice.add_metadata({"spec_customer_1": spec_customer_1})
+                        # Extract spec_customer_2 from spec_customer_1 by removing "CUSTOMER: " prefix
+                        spec_customer_2 = self._extract_spec_customer_2_from_spec_customer_1(spec_customer_1)
+                        if spec_customer_2:
+                            invoice.add_metadata({"spec_customer_2": spec_customer_2})
+                            # Extract spec_customer_3 from spec_customer_2
+                            spec_customer_3 = self._extract_spec_customer_3_from_spec_customer_2(spec_customer_2)
+                            if spec_customer_3:
+                                invoice.add_metadata({"spec_customer_3": spec_customer_3})
+                                # Extract spec_customer_4 from spec_customer_3
+                                spec_customer_4 = self._extract_spec_customer_4_from_spec_customer_3(spec_customer_3)
+                                if spec_customer_4:
+                                    invoice.add_metadata({"spec_customer_4": spec_customer_4})
                 
                 # Extract spec_vat (text before "Vat No:" or "CUSTOMER VAT:" on same line)
                 spec_vat = self._extract_spec_vat(page)
                 if spec_vat and "spec_vat" not in invoice.metadata:
                     invoice.add_metadata({"spec_vat": spec_vat})
+                
+                # Collect invoice numbers from this page
+                invoice_number_1, invoice_number_2 = self._extract_invoice_numbers(page)
+                if invoice_number_1:
+                    all_invoice_numbers.append(invoice_number_1)
+                if invoice_number_2:
+                    all_invoice_numbers.append(invoice_number_2)
+            
+            # Add invoice_number_1 and invoice_number_2 from all collected matches
+            if len(all_invoice_numbers) > 0:
+                invoice.add_metadata({"invoice_number_1": all_invoice_numbers[0]})
+                # Extract invoice_number_1_variant (text before first space)
+                invoice_number_1_variant = all_invoice_numbers[0].split()[0] if all_invoice_numbers[0] else None
+                if invoice_number_1_variant:
+                    invoice.add_metadata({"invoice_number_1_variant": invoice_number_1_variant})
+            if len(all_invoice_numbers) > 1:
+                invoice.add_metadata({"invoice_number_2": all_invoice_numbers[1]})
 
         return invoice.to_dict()
 

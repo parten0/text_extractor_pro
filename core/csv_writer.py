@@ -11,6 +11,9 @@ class CSVWriter:
         Data structure: {filename: {"metadata": {...}}, ...}
         CSV structure: filename, Date, VAT, Invoice Number, Customer, USD, Zig
         """
+        # Ensure parent directory exists
+        os.makedirs(os.path.dirname(self.path), exist_ok=True)
+        
         if not data:
             # Create empty CSV file with headers
             with open(self.path, "w", encoding="utf-8", newline="") as f:

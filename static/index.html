@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Doc Extractor Pro - Professional document text extraction service">
+    <title>Doc Extractor Pro - Document Processing</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="40" height="40" rx="8" fill="url(#gradient)" />
+                    <path d="M12 14h16M12 20h16M12 26h10" stroke="white" stroke-width="2" stroke-linecap="round" />
+                    <defs>
+                        <linearGradient id="gradient" x1="0" y1="0" x2="40" y2="40">
+                            <stop offset="0%" stop-color="#6366f1" />
+                            <stop offset="100%" stop-color="#8b5cf6" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1>Doc Extractor Pro</h1>
+            </div>
+            <p class="subtitle">Professional Document Text Extraction</p>
+        </header>
+
+        <!-- Split Screen Layout -->
+        <main class="split-layout">
+            <!-- Left Panel: Upload -->
+            <section class="panel upload-panel">
+                <div class="panel-header">
+                    <h2>Upload Documents</h2>
+                    <p>Drop your PDF files or click to browse</p>
+                </div>
+
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                            <circle cx="32" cy="32" r="32" fill="rgba(99, 102, 241, 0.1)" />
+                            <path d="M32 20v24M20 32l12-12 12 12" stroke="#6366f1" stroke-width="3"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                    <h3>Drop PDF files here</h3>
+                    <p>or click to browse</p>
+                    <input type="file" id="fileInput" accept=".pdf" multiple hidden>
+                    <button class="btn-primary" id="browseBtn">Browse Files</button>
+                </div>
+
+                <div id="fileList" class="file-list hidden"></div>
+
+                <div id="uploadActions" class="upload-actions hidden">
+                    <button class="btn-primary" id="uploadBtn">
+                        <span>Upload & Process</span>
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M5 10l5 5 10-10" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                    <button class="btn-secondary" id="clearBtn">Clear All</button>
+                </div>
+
+                <!-- Processing Status (shown when uploading) -->
+                <div id="processingStatus" class="processing-status hidden">
+                    <div class="status-icon">
+                        <div class="spinner"></div>
+                    </div>
+                    <h3 id="statusTitle">Processing...</h3>
+                    <p id="statusMessage">Please wait</p>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <span class="progress-text" id="progressText">0%</span>
+                </div>
+            </section>
+
+            <!-- Right Panel: History -->
+            <section class="panel history-panel">
+                <div class="panel-header">
+                    <h2>Processing History</h2>
+                    <p>Track all your document batches</p>
+                </div>
+
+                <!-- Loading State -->
+                <div id="historyLoading" class="history-loading">
+                    <div class="spinner"></div>
+                    <p>Loading history...</p>
+                </div>
+
+                <!-- Empty State -->
+                <div id="historyEmpty" class="history-empty hidden">
+                    <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+                        <circle cx="60" cy="60" r="60" fill="rgba(99, 102, 241, 0.05)" />
+                        <path d="M40 50h40M40 60h40M40 70h25" stroke="#6366f1" stroke-width="3" stroke-linecap="round"
+                            opacity="0.3" />
+                    </svg>
+                    <h3>No History Available</h3>
+                    <p>Upload some documents to get started</p>
+                </div>
+
+                <!-- History List -->
+                <div id="historyList" class="history-list hidden"></div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>Made with ❤️ by parten</p>
+        </footer>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+
+</html>

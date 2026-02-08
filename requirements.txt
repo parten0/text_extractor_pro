@@ -1,3 +1,7 @@
 pdfplumber
 pandas
 pytest
+fastapi
+uvicorn[standard]
+python-multipart
+aiofiles

@@ -10,9 +10,13 @@ from utils.coordinates_parser import CoordinatesParser
 
 
 class ExtractorService:
-    def __init__(self, invoices_folder, coordinates_file=None):
+    def __init__(self, invoices_folder, coordinates_file=None, progress_callback=None):
         self.invoices_folder = invoices_folder
         self.kv_parser = KVParser()
+        self.progress_callback = progress_callback  # Optional callback for progress updates
+        
+        # Create invoices folder if it doesn't exist
+        os.makedirs(self.invoices_folder, exist_ok=True)
         
         # Load coordinates if provided
         if coordinates_file is None:
@@ -23,13 +27,12 @@ class ExtractorService:
         self.coordinates_parser = CoordinatesParser(coordinates_file)
         self.coordinates = self.coordinates_parser.parse()
         
-        # Create outputs directory at project root with json and csv subfolders
+        # Create outputs directory at project root (no subfolders)
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.outputs_folder = os.path.join(project_root, "outputs")
-        self.json_folder = os.path.join(self.outputs_folder, "json")
-        self.csv_folder = os.path.join(self.outputs_folder, "csv")
-        os.makedirs(self.json_folder, exist_ok=True)
-        os.makedirs(self.csv_folder, exist_ok=True)
+        self.json_folder = self.outputs_folder  # Same as outputs folder
+        self.csv_folder = self.outputs_folder   # Same as outputs folder
+        os.makedirs(self.outputs_folder, exist_ok=True)
 
     def _extract_text_from_coordinates(self, page, page_index):
         """Extract text only from defined coordinate regions and return as dict with field names"""
@@ -445,9 +448,13 @@ class ExtractorService:
             
             # Process each PDF in the folder
             invoices_data = {}
-            for pdf_path in pdf_files:
+            for idx, pdf_path in enumerate(pdf_files, 1):
                 filename = os.path.basename(pdf_path)
                 try:
+                    # Call progress callback if provided
+                    if self.progress_callback:
+                        self.progress_callback(idx, len(pdf_files))
+                    
                     invoice_data = self._process_pdf(pdf_path)
                     invoices_data[filename] = invoice_data
                 except Exception as e:

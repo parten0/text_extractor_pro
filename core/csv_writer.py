@@ -1,5 +1,6 @@
 import csv
 import os
+import re
 
 class CSVWriter:
     def __init__(self, path):
@@ -18,7 +19,7 @@ class CSVWriter:
             # Create empty CSV file with headers
             with open(self.path, "w", encoding="utf-8", newline="") as f:
                 writer = csv.writer(f)
-                writer.writerow(["filename", "Date", "VAT", "Invoice Number", "Customer", "USD", "Zig"])
+                writer.writerow(["filename", "Date", "VAT", "Invoice Number", "Customer", "USD", "USD TAX", "Zig", "ZWG TAX"])
             return
 
         # Define the column headers and their corresponding metadata keys
@@ -29,7 +30,9 @@ class CSVWriter:
             ("Invoice Number", "invoice_number_1_variant"),
             ("Customer", "spec_customer_4"),
             ("USD", "invoice_total"),  # Special handling for invoice_total
+            ("USD Tax", "tax_total"),  # Special handling for tax_total
             ("Zig", "invoice_total"),  # Special handling for invoice_total
+            ("ZWG Tax", "tax_total"),  # Special handling for tax_total
         ]
         
         # Create CSV with specific columns
@@ -67,6 +70,37 @@ class CSVWriter:
                                 # Remove "ZWG" prefix and any whitespace, keep the rest
                                 value = invoice_total_str[3:].strip()
                                 row.append(value)
+                            else:
+                                row.append("")
+                    elif col_name in ["USD Tax", "ZWG Tax"]:
+                        # Special handling for tax_total - split into USD Tax and ZWG Tax
+                        tax_total = metadata.get("tax_total", "")
+                        tax_total_str = str(tax_total) if tax_total is not None else ""
+                        
+                        if col_name == "USD Tax":
+                            # If tax_total contains "USD", extract the value
+                            if "USD" in tax_total_str.upper():
+                                # Try to extract just the numeric part
+                                match = re.search(r'USD\s*([\d,.]+)', tax_total_str, re.IGNORECASE)
+                                if match:
+                                    row.append(match.group(1))
+                                else:
+                                    # Fallback: remove "USD" and strip
+                                    value = re.sub(r'USD', '', tax_total_str, flags=re.IGNORECASE).strip()
+                                    row.append(value)
+                            else:
+                                row.append("")
+                        elif col_name == "ZWG Tax":
+                            # If tax_total contains "ZWG", extract the value
+                            if "ZWG" in tax_total_str.upper():
+                                # Try to extract just the numeric part
+                                match = re.search(r'ZWG\s*([\d,.]+)', tax_total_str, re.IGNORECASE)
+                                if match:
+                                    row.append(match.group(1))
+                                else:
+                                    # Fallback: remove "ZWG" and strip
+                                    value = re.sub(r'ZWG', '', tax_total_str, flags=re.IGNORECASE).strip()
+                                    row.append(value)
                             else:
                                 row.append("")
                     else:

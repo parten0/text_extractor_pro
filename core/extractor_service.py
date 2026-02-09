@@ -96,6 +96,30 @@ class ExtractorService:
         
         return None
 
+    def _extract_tax_total(self, page):
+        """Extract TAX TOTAL value from the page text"""
+        # Extract full page text to search for TAX TOTAL
+        full_text = page.extract_text()
+
+        if not full_text:
+            return None
+
+        # Pattern 1: Match "TAXTOTAL:" (no space)
+        pattern1 = r'TAXTOTAL\s*:\s*([^\n\r]+)'
+        match1 = re.search(pattern1, full_text, re.IGNORECASE)
+        if match1:
+            tax_total = match1.group(1).strip()
+            return tax_total
+
+        # Pattern 2: Match "TAX TOTAL:" (with space)
+        pattern2 = r'TAX\s+TOTAL\s*:\s*([^\n\r]+)'
+        match2 = re.search(pattern2, full_text, re.IGNORECASE)
+        if match2:
+            tax_total = match2.group(1).strip()
+            return tax_total
+
+        return None
+
     def _extract_date_special(self, page):
         """Extract Date-Special: Find line containing both 'Date:' and 'Order', extract the date"""
         # Extract full page text to search for Date-Special
@@ -367,6 +391,11 @@ class ExtractorService:
                 invoice_total = self._extract_invoice_total(page)
                 if invoice_total:
                     invoice.add_metadata({"invoice_total": invoice_total})
+                
+                # Extract TAX TOTAL from the page (searches full page text)
+                tax_total = self._extract_tax_total(page)
+                if tax_total:
+                    invoice.add_metadata({"tax_total": tax_total})
                 
                 # Extract Date-Special from the page (searches for line with both "Date:" and "Order")
                 date_special = self._extract_date_special(page)
